@@ -1,3 +1,4 @@
+using YG;
 using TMPro;
 using UnityEngine;
 
@@ -11,7 +12,7 @@ public class Achievements : MonoBehaviour
 
     private readonly bool[] unlocked = new bool[5];
 
-    private void Start()
+    public void Initialize()
     {
         LoadProgress();
         UpdateUI();
@@ -24,12 +25,24 @@ public class Achievements : MonoBehaviour
             return;
         }
 
-        totalGold = PlayerPrefs.GetInt("AchievementTotalGold", 0);
+        var data = YG2.saves;
+
+        totalGold = data.achievementTotalGold;
+
+        if (data.achievementsUnlocked == null)
+        {
+            data.achievementsUnlocked =
+                new System.Collections.Generic.List<bool>();
+        }
+
+        while (data.achievementsUnlocked.Count < unlocked.Length)
+        {
+            data.achievementsUnlocked.Add(false);
+        }
 
         for (int i = 0; i < unlocked.Length; i++)
         {
-            unlocked[i] =
-                PlayerPrefs.GetInt("AchievementUnlocked" + i, 0) == 1;
+            unlocked[i] = data.achievementsUnlocked[i];
         }
 
         loaded = true;
@@ -37,14 +50,20 @@ public class Achievements : MonoBehaviour
 
     public void RegisterClick()
     {
-        LoadProgress();
+        if (!loaded)
+        {
+            return;
+        }
         Unlock(0);
         UpdateUI();
     }
 
     public void RegisterGold(int amount)
     {
-        LoadProgress();
+        if (!loaded)
+        {
+            return;
+        }
         totalGold += Mathf.Min(amount, 1000 - totalGold);
 
         if (totalGold >= 100)
@@ -62,14 +81,20 @@ public class Achievements : MonoBehaviour
 
     public void RegisterUpgrade()
     {
-        LoadProgress();
+        if (!loaded)
+        {
+            return;
+        }
         Unlock(2);
         UpdateUI();
     }
 
     public void RegisterMiner()
     {
-        LoadProgress();
+        if (!loaded)
+        {
+            return;
+        }
         Unlock(3);
         UpdateUI();
     }
@@ -111,14 +136,11 @@ public class Achievements : MonoBehaviour
             return;
         }
 
-        PlayerPrefs.SetInt("AchievementTotalGold", totalGold);
+        YG2.saves.achievementTotalGold = totalGold;
 
         for (int i = 0; i < unlocked.Length; i++)
         {
-            PlayerPrefs.SetInt(
-                "AchievementUnlocked" + i,
-                unlocked[i] ? 1 : 0
-            );
+            YG2.saves.achievementsUnlocked[i] = unlocked[i];
         }
     }
 }
