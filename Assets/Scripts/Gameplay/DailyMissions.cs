@@ -1,3 +1,4 @@
+using YG;
 using System;
 using TMPro;
 using UnityEngine;
@@ -32,13 +33,13 @@ public class DailyMissions : MonoBehaviour
     private string missionDate;
     private bool loaded;
 
-    private void Start()
+    public void Initialize()
     {
+        LoadProgress();
         CheckNewDay();
         UpdateUI();
 
         InvokeRepeating(nameof(CheckNewDay), 1f, 1f);
-        InvokeRepeating(nameof(SaveProgress), 5f, 5f);
     }
 
     private void LoadProgress()
@@ -48,14 +49,17 @@ public class DailyMissions : MonoBehaviour
             return;
         }
 
-        for (int i = 0; i < 3; i++)
-        {
-            progress[i] = PlayerPrefs.GetInt(keys[i], 0);
-            claimed[i] =
-                PlayerPrefs.GetInt(keys[i] + "Claimed", 0) == 1;
-        }
+        var data = YG2.saves;
 
-        missionDate = PlayerPrefs.GetString("DailyMissionDate", "");
+        progress[0] = data.dailyClicks;
+        progress[1] = data.dailyGold;
+        progress[2] = data.dailyUpgrade;
+
+        claimed[0] = data.dailyClicksClaimed;
+        claimed[1] = data.dailyGoldClaimed;
+        claimed[2] = data.dailyUpgradeClaimed;
+
+        missionDate = data.dailyMissionDate;
         loaded = true;
     }
 
@@ -76,6 +80,10 @@ public class DailyMissions : MonoBehaviour
 
     private void AddProgress(int index, int amount)
     {
+        if (!loaded)
+        {
+            return;
+        }
         CheckNewDay();
 
         progress[index] = Mathf.Min(
@@ -103,6 +111,10 @@ public class DailyMissions : MonoBehaviour
 
     private void ClaimReward(int index)
     {
+        if (!loaded)
+        {
+            return;
+        }
         CheckNewDay();
 
         if (progress[index] < goals[index] || claimed[index])
@@ -119,9 +131,12 @@ public class DailyMissions : MonoBehaviour
 
     private void CheckNewDay()
     {
-        LoadProgress();
+        if (!loaded)
+        {
+            return;
+        }
 
-        string today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        string today = GameClock.Today;
 
         if (missionDate == today)
         {
@@ -164,24 +179,24 @@ public class DailyMissions : MonoBehaviour
             progress[2] >= goals[2] && !claimed[2];
     }
 
-    private void SaveProgress()
+    public void SaveProgress()
     {
         if (!loaded)
         {
             return;
         }
 
-        for (int i = 0; i < 3; i++)
-        {
-            PlayerPrefs.SetInt(keys[i], progress[i]);
-            PlayerPrefs.SetInt(
-                keys[i] + "Claimed",
-                claimed[i] ? 1 : 0
-            );
-        }
+        var data = YG2.saves;
 
-        PlayerPrefs.SetString("DailyMissionDate", missionDate);
-        PlayerPrefs.Save();
+        data.dailyClicks = progress[0];
+        data.dailyGold = progress[1];
+        data.dailyUpgrade = progress[2];
+
+        data.dailyClicksClaimed = claimed[0];
+        data.dailyGoldClaimed = claimed[1];
+        data.dailyUpgradeClaimed = claimed[2];
+
+        data.dailyMissionDate = missionDate;
     }
 
     private void OnApplicationPause(bool pause)

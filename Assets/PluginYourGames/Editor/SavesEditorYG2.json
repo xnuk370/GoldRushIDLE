@@ -1,0 +1,33 @@
+{
+    "intExample": 5,
+    "strExample": "Hello!",
+    "boolExample": [
+        false,
+        false,
+        false,
+        false
+    ],
+    "idSave": 23,
+    "goldRushSaveVersion": 1,
+    "gold": 29780,
+    "goldPerClick": 1,
+    "miners": 1,
+    "tutorialStep": 2,
+    "lastRewardDate": "2026-10-18",
+    "lastActiveUtc": "639279379500000000",
+    "dailyMissionDate": "2026-10-18",
+    "dailyClicks": 0,
+    "dailyGold": 1,
+    "dailyUpgrade": 0,
+    "dailyClicksClaimed": false,
+    "dailyGoldClaimed": false,
+    "dailyUpgradeClaimed": false,
+    "achievementTotalGold": 38,
+    "achievementsUnlocked": [
+        true,
+        false,
+        false,
+        true,
+        false
+    ]
+}

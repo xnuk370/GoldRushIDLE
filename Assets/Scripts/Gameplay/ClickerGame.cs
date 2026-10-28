@@ -1,3 +1,5 @@
+using YG;
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using System;
@@ -24,28 +26,46 @@ public class ClickerGame : MonoBehaviour
     private float miningTimer = 0f;
 
     private int tutorialStep = 0;
+    private bool initialized;
 
-    private void Start()
+    private IEnumerator Start()
     {
-        gold = PlayerPrefs.GetInt("Gold", 0);
-        goldPerClick = PlayerPrefs.GetInt("GoldPerClick", 1);
-        miners = PlayerPrefs.GetInt("Miners", 0);
-        tutorialStep = PlayerPrefs.GetInt("TutorialStep", 0);
+        goldText.text = "Загрузка прогресса...";
+        dailyRewardButton.interactable = false;
 
-        lastRewardDate = PlayerPrefs.GetString("LastRewardDate", "");
+        while (!YG2.isSDKEnabled)
+        {
+            yield return null;
+        }
+
+        var data = YG2.saves;
+
+        gold = data.gold;
+        goldPerClick = data.goldPerClick;
+        miners = data.miners;
+        tutorialStep = data.tutorialStep;
+        lastRewardDate = data.lastRewardDate;
+
+        dailyMissions.Initialize();
+        achievements.Initialize();
+
         ApplyOfflineIncome();
+
+        initialized = true;
+
         UpdateDailyRewardUI();
         UpdateGoldText();
         UpdateTutorial();
 
-        InvokeRepeating(nameof(SaveProgress), 5f, 5f);
+        InvokeRepeating(nameof(SaveProgress), 15f, 15f);
         InvokeRepeating(nameof(UpdateDailyRewardUI), 1f, 1f);
+
         SaveProgress();
     }
 
     private void Update()
     {
-        if (miners == 0)
+        if (!initialized || miners == 0)
         {
             return;
         }
@@ -66,6 +86,10 @@ public class ClickerGame : MonoBehaviour
 
     public void MineGold()
     {
+        if (!initialized)
+        {
+            return;
+        }
         gold += goldPerClick;
         dailyMissions.RegisterClick();
         dailyMissions.RegisterGold(goldPerClick);
@@ -83,6 +107,10 @@ public class ClickerGame : MonoBehaviour
 
     public void UpgradeClick()
     {
+        if (!initialized)
+        {
+            return;
+        }
         if (gold < upgradeCost)
         {
             return;
@@ -105,6 +133,10 @@ public class ClickerGame : MonoBehaviour
 
     public void BuyMiner()
     {
+        if (!initialized)
+        {
+            return;
+        }
         if (gold < minerCost)
         {
             return;
@@ -153,17 +185,25 @@ public class ClickerGame : MonoBehaviour
 
     private void SaveProgress()
     {
-        PlayerPrefs.SetInt("Gold", gold);
-        PlayerPrefs.SetInt("GoldPerClick", goldPerClick);
-        PlayerPrefs.SetInt("Miners", miners);
-        PlayerPrefs.SetInt("TutorialStep", tutorialStep);
-        PlayerPrefs.SetString("LastRewardDate", lastRewardDate);
+        if (!initialized)
+        {
+            return;
+        }
+
+        var data = YG2.saves;
+
+        data.goldRushSaveVersion = 1;
+        data.gold = gold;
+        data.goldPerClick = goldPerClick;
+        data.miners = miners;
+        data.tutorialStep = tutorialStep;
+        data.lastRewardDate = lastRewardDate;
+        data.lastActiveUtc = GameClock.UtcNow.Ticks.ToString();
+
+        dailyMissions.SaveProgress();
         achievements.SaveProgress();
-        PlayerPrefs.SetString(
-            "LastActiveUtc",
-            DateTime.UtcNow.Ticks.ToString()
-        );
-        PlayerPrefs.Save();
+
+        YG2.SaveProgress();
     }
 
     private void OnApplicationPause(bool pause)
@@ -181,7 +221,11 @@ public class ClickerGame : MonoBehaviour
 
     public void ClaimDailyReward()
     {
-        string today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        if (!initialized)
+        {
+            return;
+        }
+        string today = GameClock.Today;
 
         if (lastRewardDate == today)
         {
@@ -199,7 +243,7 @@ public class ClickerGame : MonoBehaviour
 
     private void UpdateDailyRewardUI()
     {
-        string today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+        string today = GameClock.Today;
         bool available = lastRewardDate != today;
 
         dailyRewardButton.interactable = available;
@@ -211,6 +255,10 @@ public class ClickerGame : MonoBehaviour
 
     public void AddMissionReward(int amount)
     {
+        if (!initialized)
+        {
+            return;
+        }
         gold += amount;
 
         UpdateGoldText();
@@ -221,14 +269,14 @@ public class ClickerGame : MonoBehaviour
     private void ApplyOfflineIncome()
     {
         offlineIncomeText.text = "";
-        string savedTime = PlayerPrefs.GetString("LastActiveUtc", "");
+        string savedTime = YG2.saves.lastActiveUtc;
 
         if (!long.TryParse(savedTime, out long savedTicks))
         {
             return;
         }
 
-        long nowTicks = DateTime.UtcNow.Ticks;
+        long nowTicks = GameClock.UtcNow.Ticks;
 
         if (savedTicks <= 0 || savedTicks > nowTicks)
         {
