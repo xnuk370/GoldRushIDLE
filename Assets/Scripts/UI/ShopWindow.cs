@@ -13,6 +13,8 @@ public class ShopWindow : MonoBehaviour
     public void Open()
     {
         achievementsPanel.SetActive(false);
+
+        shopPanel.transform.SetAsLastSibling();
         shopPanel.SetActive(true);
     }
 
