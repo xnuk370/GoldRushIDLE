@@ -24,6 +24,12 @@ namespace YG
         public bool dailyGoldClaimed = false;
         public bool dailyUpgradeClaimed = false;
 
+        public bool dailyMissionPlanSaved = false;
+        public int dailyGoldGoal = 200;
+
+        public int dailyClicksReward = 10;
+        public int dailyGoldReward = 20;
+        public int dailyUpgradeReward = 15;
 
         public int achievementTotalGold = 0;
 

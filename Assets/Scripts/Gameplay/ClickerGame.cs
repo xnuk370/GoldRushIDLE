@@ -14,15 +14,19 @@ public class ClickerGame : MonoBehaviour
     [SerializeField] private DailyMissions dailyMissions;
     [SerializeField] private Achievements achievements;
     [SerializeField] private TMP_Text offlineIncomeText;
+    [SerializeField] private Button upgradeButton;
+    [SerializeField] private TMP_Text upgradeButtonText;
+    [SerializeField] private Button minerButton;
+    [SerializeField] private TMP_Text minerButtonText;
 
     private string lastRewardDate = "";
 
     private int gold = 0;
     private int goldPerClick = 1;
     private int miners = 0;
-    private const int MaxOfflineSeconds = 8 * 60 * 60;
+    private const int MaxOfflineSeconds = 4 * 60 * 60;
     private int upgradeCost = 10;
-    private int minerCost = 25;
+    private int minerCost = 50;
     private float miningTimer = 0f;
 
     private int tutorialStep = 0;
@@ -45,6 +49,12 @@ public class ClickerGame : MonoBehaviour
         miners = data.miners;
         tutorialStep = data.tutorialStep;
         lastRewardDate = data.lastRewardDate;
+        gold = Mathf.Max(0, gold);
+        goldPerClick = Mathf.Max(1, goldPerClick);
+        miners = Mathf.Max(0, miners);
+
+        upgradeCost = CalculatePrice(10, 125, goldPerClick - 1);
+        minerCost = CalculatePrice(50, 135, miners);
 
         dailyMissions.Initialize();
         achievements.Initialize();
@@ -90,11 +100,19 @@ public class ClickerGame : MonoBehaviour
         {
             return;
         }
-        gold += goldPerClick;
+
+        int income = (int)Math.Min(
+            (long)ClickIncome,
+            (long)int.MaxValue - gold
+        );
+
+        gold += income;
+
         dailyMissions.RegisterClick();
-        dailyMissions.RegisterGold(goldPerClick);
+        dailyMissions.RegisterGold(income);
+
         achievements.RegisterClick();
-        achievements.RegisterGold(goldPerClick);
+        achievements.RegisterGold(income);
 
         if (tutorialStep == 0)
         {
@@ -111,13 +129,14 @@ public class ClickerGame : MonoBehaviour
         {
             return;
         }
-        if (gold < upgradeCost)
+        if (gold < upgradeCost || upgradeCost == int.MaxValue)
         {
             return;
         }
 
         gold -= upgradeCost;
         goldPerClick++;
+        upgradeCost = CalculatePrice(10, 125, goldPerClick - 1);
         dailyMissions.RegisterUpgrade();
         achievements.RegisterUpgrade();
 
@@ -137,13 +156,14 @@ public class ClickerGame : MonoBehaviour
         {
             return;
         }
-        if (gold < minerCost)
+        if (gold < minerCost || minerCost == int.MaxValue)
         {
             return;
         }
 
         gold -= minerCost;
         miners++;
+        minerCost = CalculatePrice(50, 135, miners);
         achievements.RegisterMiner();
 
         UpdateGoldText();
@@ -154,8 +174,12 @@ public class ClickerGame : MonoBehaviour
     private void UpdateGoldText()
     {
         goldText.text = "Золото: " + gold
-            + "\nЗа клик: " + goldPerClick
-            + "\nВ секунду: " + miners;
+            + "\nЗа клик: " + ClickIncome
+            + " (база " + goldPerClick
+            + " + бонус " + miners / 2 + ")"
+            + "\nАвтодобыча: " + miners + "/с";
+
+        UpdateShopUI();
     }
 
     private void UpdateTutorial()
@@ -174,11 +198,11 @@ public class ClickerGame : MonoBehaviour
                 break;
 
             case 1:
-                tutorialText.text = "Накопи 10 золота для улучшения клика";
+                tutorialText.text = "Накопи " + upgradeCost + " золота для улучшения клика";
                 break;
 
             case 2:
-                tutorialText.text = "Нажми «Улучшить клик»: добыча увеличится на 1";
+                tutorialText.text = "Открой магазин и купи улучшение клика";
                 break;
         }
     }
@@ -232,7 +256,12 @@ public class ClickerGame : MonoBehaviour
             return;
         }
 
-        gold += 20;
+        int reward = (int)Math.Min(
+            (long)DailyRewardAmount,
+            (long)int.MaxValue - gold
+        );
+
+        gold += reward;
         lastRewardDate = today;
 
         UpdateGoldText();
@@ -249,7 +278,7 @@ public class ClickerGame : MonoBehaviour
         dailyRewardButton.interactable = available;
 
         dailyRewardText.text = available
-            ? "Ежедневная награда доступна"
+            ? "Ежедневная награда: " + DailyRewardAmount + " золота"
             : "Награда получена. Возвращайся завтра!";
     }
 
@@ -296,7 +325,7 @@ public class ClickerGame : MonoBehaviour
             return;
         }
 
-        long income = (long)seconds * miners;
+        long income = (long)seconds * miners / 10;
 
         int addedGold = (int)Math.Min(
             income,
@@ -321,5 +350,78 @@ public class ClickerGame : MonoBehaviour
     private void HideOfflineIncome()
     {
         offlineIncomeText.text = "";
+    }
+
+    private int ClickIncome
+    {
+        get
+        {
+            return (int)Math.Min(
+                (long)goldPerClick + miners / 2,
+                int.MaxValue
+            );
+        }
+    }
+
+    private int CalculatePrice(int initialPrice, int growthPercent, int purchases)
+    {
+        long price = initialPrice;
+
+        for (int i = 0; i < purchases; i++)
+        {
+            // Целочисленное округление вверх.
+            price = (price * growthPercent + 99) / 100;
+
+            if (price >= int.MaxValue)
+            {
+                return int.MaxValue;
+            }
+        }
+
+        return (int)price;
+    }
+
+    private void UpdateShopUI()
+    {
+        upgradeButton.interactable =
+            initialized && gold >= upgradeCost
+            && upgradeCost < int.MaxValue;
+
+        minerButton.interactable =
+            initialized && gold >= minerCost
+            && minerCost < int.MaxValue;
+
+        upgradeButtonText.text =
+            "Улучшить клик — " + upgradeCost + " золота"
+            + "\nБазовая сила: " + goldPerClick
+            + "\nПокупка: +1 золото за клик";
+
+        minerButtonText.text =
+            "Купить шахтёра — " + minerCost + " золота"
+            + "\nШахтёров: " + miners
+            + "\nПокупка: +1 золото/с"
+            + "\nКаждые 2 шахтёра: +1 за клик";
+    }
+
+    private int DailyRewardAmount
+    {
+        get
+        {
+            long activeIncomePerSecond =
+                (long)ClickIncome * 2 + miners;
+
+            return (int)Math.Min(
+                Math.Max(20L, activeIncomePerSecond * 30),
+                int.MaxValue
+            );
+        }
+    }
+    public long EstimatedActiveIncomePerSecond
+    {
+        get
+        {
+            // Расчётный темп: два нажатия в секунду.
+            return (long)ClickIncome * 2 + miners;
+        }
     }
 }

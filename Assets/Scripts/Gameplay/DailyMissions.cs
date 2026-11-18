@@ -20,8 +20,8 @@ public class DailyMissions : MonoBehaviour
     private int[] progress = new int[3];
     private bool[] claimed = new bool[3];
 
-    private readonly int[] goals = { 50, 200, 1 };
-    private readonly int[] rewards = { 10, 20, 15 };
+    private int[] goals = { 50, 200, 1 };
+    private int[] rewards = { 10, 20, 15 };
 
     private readonly string[] keys =
     {
@@ -61,6 +61,14 @@ public class DailyMissions : MonoBehaviour
 
         missionDate = data.dailyMissionDate;
         loaded = true;
+        if (data.dailyMissionPlanSaved)
+        {
+            goals[1] = Mathf.Max(1, data.dailyGoldGoal);
+
+            rewards[0] = Mathf.Max(1, data.dailyClicksReward);
+            rewards[1] = Mathf.Max(1, data.dailyGoldReward);
+            rewards[2] = Mathf.Max(1, data.dailyUpgradeReward);
+        }
     }
 
     public void RegisterClick()
@@ -86,8 +94,8 @@ public class DailyMissions : MonoBehaviour
         }
         CheckNewDay();
 
-        progress[index] = Mathf.Min(
-            progress[index] + amount,
+        progress[index] = (int)Math.Min(
+            (long)progress[index] + Math.Max(0, amount),
             goals[index]
         );
 
@@ -138,12 +146,27 @@ public class DailyMissions : MonoBehaviour
 
         string today = GameClock.Today;
 
-        if (missionDate == today)
+        // Не сбрасываем миссии, если тестовое время перевели назад.
+        if (!string.IsNullOrEmpty(missionDate)
+            && string.CompareOrdinal(today, missionDate) <= 0)
         {
             return;
         }
 
         missionDate = today;
+
+        long income = Math.Max(
+            1L,
+            clickerGame.EstimatedActiveIncomePerSecond
+        );
+
+        goals[0] = 50;
+        goals[1] = CalculateAmount(income, 120);
+        goals[2] = 1;
+
+        rewards[0] = CalculateAmount(income, 10);
+        rewards[1] = CalculateAmount(income, 20);
+        rewards[2] = CalculateAmount(income, 15);
 
         for (int i = 0; i < 3; i++)
         {
@@ -155,28 +178,46 @@ public class DailyMissions : MonoBehaviour
         SaveProgress();
     }
 
+    private int CalculateAmount(long incomePerSecond, int seconds)
+    {
+        return (int)Math.Min(
+            incomePerSecond * seconds,
+            int.MaxValue
+        );
+    }
+
     private void UpdateUI()
     {
         clicksText.text = claimed[0]
-            ? "50 нажатий — награда получена!"
-            : "Нажми на руду: " + progress[0] + "/50";
+            ? "Нажатия — награда получена!"
+            : "Нажми на руду: " + progress[0] + "/" + goals[0];
 
         goldText.text = claimed[1]
-            ? "200 золота — награда получена!"
-            : "Добудь золото: " + progress[1] + "/200";
+            ? "Добыча — награда получена!"
+            : "Добудь золото: " + progress[1] + "/" + goals[1];
 
         upgradeText.text = claimed[2]
             ? "Улучшение — награда получена!"
-            : "Улучши клик: " + progress[2] + "/1";
+            : "Улучши клик: " + progress[2] + "/" + goals[2];
 
-        clicksButton.interactable =
-            progress[0] >= goals[0] && !claimed[0];
+        UpdateRewardButton(clicksButton, 0);
+        UpdateRewardButton(goldButton, 1);
+        UpdateRewardButton(upgradeButton, 2);
+    }
 
-        goldButton.interactable =
-            progress[1] >= goals[1] && !claimed[1];
+    private void UpdateRewardButton(Button button, int index)
+    {
+        button.interactable =
+            progress[index] >= goals[index] && !claimed[index];
 
-        upgradeButton.interactable =
-            progress[2] >= goals[2] && !claimed[2];
+        TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
+
+        if (label != null)
+        {
+            label.text = claimed[index]
+                ? "Получено"
+                : "Забрать " + rewards[index] + " золота";
+        }
     }
 
     public void SaveProgress()
@@ -197,6 +238,13 @@ public class DailyMissions : MonoBehaviour
         data.dailyUpgradeClaimed = claimed[2];
 
         data.dailyMissionDate = missionDate;
+        data.dailyMissionPlanSaved = true;
+
+        data.dailyGoldGoal = goals[1];
+
+        data.dailyClicksReward = rewards[0];
+        data.dailyGoldReward = rewards[1];
+        data.dailyUpgradeReward = rewards[2];
     }
 
     private void OnApplicationPause(bool pause)
